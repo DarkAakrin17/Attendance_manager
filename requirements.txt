@@ -1,5 +1,5 @@
 streamlit
 pymongo
-passlib
-bcrypt
 matplotlib
+bcrypt==4.0.1
+passlib==1.7.4
