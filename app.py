@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from pymongo import MongoClient, errors
 from passlib.context import CryptContext
 import os
+import math
 
 # ---- Page Configuration ----
 st.set_page_config(page_title="Attendance Tracker", layout="centered")
@@ -226,11 +227,18 @@ else:
             "selected_list", "") if is_edit_mode else ""
 
         st.markdown(f"<h1>{page_title}</h1>", unsafe_allow_html=True)
+
         if is_edit_mode:
             st.markdown(f"<h2>{list_name}</h2>", unsafe_allow_html=True)
+            timetable_doc = db.timetables.find_one({"_id": list_name})
+            default_is_public = timetable_doc.get("is_public", True)
         else:
             list_name = st.text_input("Semester Name", key="new_list_name",
                                       label_visibility="collapsed", placeholder="Enter Semester Name")
+            default_is_public = True
+
+        is_public = st.toggle("Make this timetable public?", value=default_is_public,
+                              help="Public timetables are visible to all users. Private ones are only visible to you.")
         st.divider()
 
         if 'form_step' not in st.session_state:
@@ -259,16 +267,12 @@ else:
                     st.rerun()
             if col3.button("Back"):
                 st.session_state.page = "dashboard"
-                for key in ["form_step", "subject_list"]:
-                    if key in st.session_state:
-                        del st.session_state[key]
                 st.rerun()
 
         elif st.session_state.form_step == 2:
             st.markdown(
                 "<h3>Step 2: Assign Hours Per Day (Mon-Sat)</h3>", unsafe_allow_html=True)
-            st.caption(
-                "Set hours to 0 if there is no class. Saturday hours are a default but can be changed on the day.")
+            st.caption("Set hours to 0 if there is no class.")
             day_tabs = st.tabs(DAYS_OF_WEEK)
             for i, day in enumerate(DAYS_OF_WEEK):
                 with day_tabs[i]:
@@ -284,12 +288,16 @@ else:
                 st.rerun()
             if col2.button("💾 Save Timetable"):
                 if not list_name:
-                    st.warning("⚠️ Please provide a name for the semester.")
+                    st.warning("⚠️ Please provide a name.")
                 else:
                     schedule = {day: [{"name": s, "hours": st.session_state.get(
                         f"{day}_{s}_hours", 0)} for s in st.session_state.subject_list if st.session_state.get(f"{day}_{s}_hours", 0) > 0] for day in DAYS_OF_WEEK}
-                    db.timetables.update_one({"_id": list_name}, {"$set": {
-                                             "schedule": schedule, "owner": st.session_state.get("username")}}, upsert=True)
+                    db.timetables.update_one(
+                        {"_id": list_name},
+                        {"$set": {"schedule": schedule, "owner": st.session_state.get(
+                            "username"), "is_public": is_public}},
+                        upsert=True
+                    )
                     st.success(f"✅ Timetable '{list_name}' saved!")
                     st.session_state.page = "dashboard"
                     for key in ["form_step", "subject_list"]:
@@ -639,7 +647,125 @@ else:
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 2G. DASHBOARD PAGE (Default)
+    # 2G. PREDICTION PAGE
+    elif st.session_state.page == "prediction":
+        st.markdown('<div class="main-container">', unsafe_allow_html=True)
+        st.markdown("<h1>🔮 Attendance Prediction</h1>", unsafe_allow_html=True)
+        st.caption(
+            "Calculate how many classes you need to attend per subject to reach 80%.")
+        st.divider()
+
+        username = st.session_state.get("username")
+        query = {"$or": [{"is_public": True}, {"owner": username}]}
+        timetable_options = [t["_id"]
+                             for t in db.timetables.find(query, {"_id": 1})]
+
+        if not timetable_options:
+            st.warning("No timetables available. Please create one first.")
+        else:
+            selected_list = st.selectbox(
+                "Select a timetable for prediction:", timetable_options)
+
+            if selected_list:
+                timetable_doc = db.timetables.find_one({"_id": selected_list})
+                schedule = timetable_doc.get("schedule", {})
+                all_subjects = sorted(
+                    list({s['name'] for day_sched in schedule.values() for s in day_sched}))
+
+                user_records_cursor = list(db.attendance_records.find(
+                    {"list_name": selected_list, "username": username}))
+
+                st.markdown(
+                    f"<h3>Prediction Status for '{selected_list}'</h3>", unsafe_allow_html=True)
+
+                if not all_subjects:
+                    st.warning("No subjects are defined for this timetable.")
+                else:
+                    for subject_name in all_subjects:
+                        subject_conducted = 0
+                        subject_present = 0
+                        for doc in user_records_cursor:
+                            for record in doc.get("records", []):
+                                if record.get("subject") == subject_name:
+                                    subject_conducted += 1
+                                    if record.get("status") == "Present":
+                                        subject_present += 1
+
+                        st.markdown('<div class="glass-subject-row">',
+                                    unsafe_allow_html=True)
+                        st.markdown(f"<h4>{subject_name}</h4>",
+                                    unsafe_allow_html=True)
+
+                        if subject_conducted == 0:
+                            st.info("No attendance marked for this subject yet.")
+                        else:
+                            current_percentage = (
+                                subject_present / subject_conducted) * 100
+                            st.markdown(
+                                f"**Current Attendance:** <span class='percentage-display'>{current_percentage:.2f}%</span>", unsafe_allow_html=True)
+
+                            if current_percentage >= 80:
+                                st.success("🎉 Target met! Keep it up.")
+                            else:
+                                classes_needed = math.ceil(
+                                    4 * subject_conducted - 5 * subject_present)
+                                st.warning(
+                                    f"You need to attend **{classes_needed} more classes** of this subject to reach 80%.")
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+        if st.button("🔙 Back to Dashboard"):
+            st.session_state.page = "dashboard"
+            st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # 2H. NEW: RESET ATTENDANCE PAGE
+    elif st.session_state.page == "reset_attendance":
+        st.markdown('<div class="main-container">', unsafe_allow_html=True)
+        st.markdown("<h1>🗑️ Reset Attendance</h1>", unsafe_allow_html=True)
+        st.caption(
+            "Permanently delete your attendance record for a specific date.")
+        st.divider()
+
+        username = st.session_state.get("username")
+        query = {"$or": [{"is_public": True}, {"owner": username}]}
+        timetable_options = [t["_id"]
+                             for t in db.timetables.find(query, {"_id": 1})]
+
+        if not timetable_options:
+            st.warning("No timetables available to reset.")
+        else:
+            selected_list = st.selectbox(
+                "Select a timetable:", timetable_options)
+            selected_date = st.date_input(
+                "Select the date to reset:", datetime.now())
+
+            st.divider()
+
+            if st.button("Find and Reset Record", type="primary"):
+                date_str = selected_date.strftime("%Y-%m-%d")
+                query_to_delete = {"list_name": selected_list,
+                                   "date": date_str, "username": username}
+
+                # Check if a record exists before attempting deletion
+                record_to_delete = db.attendance_records.find_one(
+                    query_to_delete)
+
+                if record_to_delete:
+                    db.attendance_records.delete_one(query_to_delete)
+                    st.success(
+                        f"Your attendance record for {selected_list} on {date_str} has been successfully deleted.")
+                else:
+                    st.error(
+                        f"No attendance record found for you in '{selected_list}' on {date_str}.")
+
+        if st.button("🔙 Back to Dashboard"):
+            st.session_state.page = "dashboard"
+            st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # 2I. DASHBOARD PAGE (Default)
     else:
         st.markdown('<div class="main-container">', unsafe_allow_html=True)
         username = st.session_state.get('username', 'User')
@@ -647,33 +773,50 @@ else:
         st.markdown(
             f"<p style='text-align: center; color: #90EE90;'>Today is <strong>{datetime.now().strftime('%A, %d %B %Y')}</strong>.</p>", unsafe_allow_html=True)
 
-        d_cols = st.columns(4)
-        if d_cols[0].button("➕ Create List"):
+        # Dashboard buttons organized in a 3x2 grid for clarity
+        st.markdown("<h4>Actions</h4>", unsafe_allow_html=True)
+        d_cols1 = st.columns(3)
+        if d_cols1[0].button("➕ Create List"):
             st.session_state.page = "new_timetable"
             st.session_state.form_step = 1
             st.session_state.subject_list = [""]
             st.rerun()
-        if d_cols[1].button("🔑 Change Password"):
+        if d_cols1[1].button("📥 Import Data"):
+            st.session_state.page = "import_data"
+            st.rerun()
+        if d_cols1[2].button("🔮 Predict"):
+            st.session_state.page = "prediction"
+            st.rerun()
+
+        st.markdown("<h4>Account Settings</h4>", unsafe_allow_html=True)
+        d_cols2 = st.columns(3)
+        if d_cols2[0].button("🔑 Change Password"):
             st.session_state.page = "change_password"
             st.rerun()
-        if d_cols[2].button("👤 Change Username"):
+        if d_cols2[1].button("👤 Change Username"):
             st.session_state.page = "change_username"
             st.rerun()
-        if d_cols[3].button("📥 Import Data"):
-            st.session_state.page = "import_data"
+        if d_cols2[2].button("🗑️ Reset Date"):
+            st.session_state.page = "reset_attendance"
             st.rerun()
 
         st.divider()
-        st.markdown("<h2>Public Attendance Lists</h2>", unsafe_allow_html=True)
-        st.caption("Mark your personal attendance for any public timetable.")
+        st.markdown("<h2>Available Attendance Lists</h2>",
+                    unsafe_allow_html=True)
+        st.caption(
+            "You can see all public lists and any private lists you have created.")
 
-        all_timetables = list(db.timetables.find({}, {"_id": 1, "owner": 1}))
+        query = {"$or": [{"is_public": True}, {"owner": username}]}
+        all_timetables = list(db.timetables.find(
+            query, {"_id": 1, "owner": 1, "is_public": 1}))
         if not all_timetables:
-            st.info("No attendance lists have been created yet. Be the first!")
+            st.info("No attendance lists available. Be the first to create one!")
         else:
             for timetable in all_timetables:
                 list_name = timetable["_id"]
                 owner = timetable.get("owner")
+                is_public = timetable.get("is_public", False)
+
                 if st.session_state.get("confirming_delete") == list_name:
                     st.markdown(
                         '<div class="glass-list-item" style="border-color: #F44336;">', unsafe_allow_html=True)
@@ -722,7 +865,8 @@ else:
                 st.markdown('<div class="glass-list-item">',
                             unsafe_allow_html=True)
                 st.markdown(f"<h3>{list_name}</h3>", unsafe_allow_html=True)
-                st.caption(f"Created by: {owner}")
+                visibility = "Public" if is_public else "Private (Yours)"
+                st.caption(f"Created by: {owner} | Status: {visibility}")
                 cols = st.columns([2, 2, 4])
                 if cols[0].button("✒️ Mark Attendance", key=f"attend_{list_name}"):
                     st.session_state.selected_list = list_name
