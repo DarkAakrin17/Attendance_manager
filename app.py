@@ -141,14 +141,76 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def get_theme_css(theme):
+    """Returns a CSS string based on the selected theme."""
+    if theme == "dark":
+        return """
+            <style>
+            /* Dark Theme CSS */
+            .main-container, .auth-container, .glass-list-item, .glass-subject-row {
+                background: rgba(25, 25, 40, 0.75);
+                backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            }
+            h1, h2, h3, h4, .stDateInput label, .st-emotion-cache-16txtl3, body { color: white; text-align: center; }
+            .stTextInput > div > div > input { color: white; }
+            .stButton>button { background: rgba(0, 150, 255, 0.4); border: 1px solid rgba(0, 150, 255, 0.2); color: white; }
+            .stButton>button:hover { background: rgba(0, 150, 255, 0.6); border: 1px solid #007BFF; }
+            .stTabs [data-baseweb="tab"], .auth-container > div[data-testid="stHorizontalBlock"] > div { background-color: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
+            .stTabs [data-baseweb="tab"]:hover { background-color: rgba(255, 255, 255, 0.3); }
+            .stTabs [aria-selected="true"] { background-color: rgba(0, 150, 255, 0.5); }
+            </style>
+        """
+    else:  # Light Theme
+        return """
+            <style>
+            /* Light Theme CSS */
+            .main-container, .auth-container, .glass-list-item, .glass-subject-row {
+                background: rgba(255, 255, 255, 0.7);
+                backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(0, 0, 0, 0.1);
+                box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+            }
+            h1, h2, h3, h4, .stDateInput label, .st-emotion-cache-16txtl3, body { color: #333; text-align: center; }
+            .stTextInput > div > div > input { color: #333; }
+            .stButton>button { background: rgba(0, 123, 255, 0.7); border: 1px solid rgba(0, 123, 255, 0.5); color: white; }
+            .stButton>button:hover { background: rgba(0, 123, 255, 0.9); border: 1px solid #0056b3; }
+            .stTabs [data-baseweb="tab"], .auth-container > div[data-testid="stHorizontalBlock"] > div { background-color: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.1); color: #333; }
+            .stTabs [data-baseweb="tab"]:hover { background-color: rgba(0, 0, 0, 0.1); }
+            .stTabs [aria-selected="true"] { background-color: rgba(0, 123, 255, 0.2); }
+            .percentage-display { color: #007BFF; }
+            h1, .stMarkdown h1 { color: rgb(128,128,128); }
+            </style>
+        """
+
+
 # ---- Main Application Logic ----
 script_dir = os.path.dirname(os.path.abspath(__file__))
-image_path = os.path.join(script_dir, "image.png")
+image_dark_path = os.path.join(script_dir, "image_dark.png")
+image_light_path = os.path.join(script_dir, "image_light.png")
+
+# --- Session State for UI Control ---
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+if "page" not in st.session_state:
+    st.session_state["page"] = "dashboard"
+if "auth_page" not in st.session_state:
+    st.session_state["auth_page"] = "Login"
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"  # Default to dark theme
+
+# Apply the selected theme and background
 try:
-    add_bg_from_local(image_path)
+    if st.session_state.theme == "dark":
+        add_bg_from_local(image_dark_path)
+    else:
+        add_bg_from_local(image_light_path)
 except FileNotFoundError:
     st.warning(
-        "Background image 'image.png' not found. Please ensure it's in the same directory as the script.")
+        "A theme background image is missing. Please ensure 'image_dark.png' and 'image_light.png' are present.")
+
+st.markdown(get_theme_css(st.session_state.theme), unsafe_allow_html=True)
 
 # --- Session State for UI Control ---
 if "authenticated" not in st.session_state:
@@ -392,18 +454,21 @@ else:
                     unsafe_allow_html=True)
         user_records_cursor = list(db.attendance_records.find(
             {"list_name": list_name, "username": username}))
-        total_conducted = sum(len(doc.get("records", []))
-                              for doc in user_records_cursor)
-        total_present = sum(1 for doc in user_records_cursor for entry in doc.get(
+
+        total_conducted = sum(entry.get(
+            'hours', 1) for doc in user_records_cursor for entry in doc.get("records", []))
+        total_present = sum(entry.get('hours', 1) for doc in user_records_cursor for entry in doc.get(
             "records", []) if entry['status'] == 'Present')
         total_absent = total_conducted - total_present
+
         stat_cols = st.columns(3)
         stat_cols[0].markdown(
-            f'<div class="glass-stat-box"><div class="stat-value">{total_conducted}</div><div class="stat-label">Conducted</div></div>', unsafe_allow_html=True)
+            f'<div class="glass-stat-box"><div class="stat-value">{total_conducted}</div><div class="stat-label">Conducted Hours</div></div>', unsafe_allow_html=True)
         stat_cols[1].markdown(
-            f'<div class="glass-stat-box"><div class="stat-value">{total_present}</div><div class="stat-label">Present</div></div>', unsafe_allow_html=True)
+            f'<div class="glass-stat-box"><div class="stat-value">{total_present}</div><div class="stat-label">Present Hours</div></div>', unsafe_allow_html=True)
         stat_cols[2].markdown(
-            f'<div class="glass-stat-box"><div class="stat-value">{total_absent}</div><div class="stat-label">Absent</div></div>', unsafe_allow_html=True)
+            f'<div class="glass-stat-box"><div class="stat-value">{total_absent}</div><div class="stat-label">Absent Hours</div></div>', unsafe_allow_html=True)
+
         st.divider()
         col_back, col_edit = st.columns(2)
         if col_back.button("🔙 Back to Dashboard"):
@@ -436,18 +501,22 @@ else:
                     unsafe_allow_html=True)
         st.markdown(f"<h2>{list_name}</h2>", unsafe_allow_html=True)
         st.divider()
+
         subject_stats = {}
         user_records_cursor = db.attendance_records.find(
             {"list_name": list_name, "username": username})
+
         for doc in user_records_cursor:
             for record in doc.get("records", []):
                 subject_name = record['subject']
+                hours = record.get('hours', 1)
                 if subject_name not in subject_stats:
                     subject_stats[subject_name] = {
                         'conducted': 0, 'present': 0}
-                subject_stats[subject_name]['conducted'] += 1
+                subject_stats[subject_name]['conducted'] += hours
                 if record['status'] == 'Present':
-                    subject_stats[subject_name]['present'] += 1
+                    subject_stats[subject_name]['present'] += hours
+
         if not subject_stats:
             st.info("You haven't marked any attendance for this list yet.")
         else:
@@ -473,12 +542,13 @@ else:
                     if stats['conducted'] > 0:
                         labels, sizes, colors = ['Present', 'Absent'], [
                             stats['present'], stats['absent']], ['#00DFFC', '#F44336']
+                        text_color = 'white' if st.session_state.theme == 'dark' else '#333'
                         fig, ax = plt.subplots(figsize=(3, 3))
                         ax.pie(sizes, autopct='%1.1f%%', startangle=90,
                                colors=colors, wedgeprops=dict(width=0.4))
                         fig.patch.set_alpha(0.0)
                         ax.patch.set_alpha(0.0)
-                        plt.setp(ax.texts, color='white',
+                        plt.setp(ax.texts, color=text_color,
                                  size=10, weight="bold")
                         ax.axis('equal')
                         st.pyplot(fig)
@@ -772,6 +842,20 @@ else:
         st.markdown(f"<h1>Welcome, {username}!</h1>", unsafe_allow_html=True)
         st.markdown(
             f"<p style='text-align: center; color: #90EE90;'>Today is <strong>{datetime.now().strftime('%A, %d %B %Y')}</strong>.</p>", unsafe_allow_html=True)
+
+        header_cols = st.columns([4, 1])
+        with header_cols[0]:
+            date_color = "#90EE90" if st.session_state.theme == "dark" else "#2E8B57"
+           # st.markdown(
+            #    f"<p style='text-align: center; color: {date_color};'>Today is <strong>{datetime.now().strftime('%A, %d %B %Y')}</strong>.</p>", unsafe_allow_html=True)
+
+        with header_cols[1]:
+            theme_icon = "🌞" if st.session_state.theme == "dark" else "🌙"
+            if st.button(f"{theme_icon} Switch Theme", key="theme_toggle"):
+                st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
+                st.rerun()
+
+        st.divider()
 
         # Dashboard buttons organized in a 3x2 grid for clarity
         st.markdown("<h4>Actions</h4>", unsafe_allow_html=True)
