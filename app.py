@@ -96,6 +96,71 @@ st.markdown("""
     h1, h2, h3, h4, .stDateInput label { color: white; text-align: center; }
     p, .st-caption { text-align: center; } /* Center paragraph and caption text */
     .st-emotion-cache-16txtl3 { color: rgba(255,255,255,0.7); } /* Streamlit caption color */
+    
+    /* --- NEW SLIDER STYLES V5 (ROBUST PILL) --- */
+    
+    /* 1. The main background track (the 'gutter') */
+    .stSlider [data-baseweb="slider"] > div:first-child {
+        /* This is the container for the track pieces. */
+        background: none !important;
+        height: 10px !important; 
+    }
+    .stSlider [data-baseweb="slider"] > div:first-child > div {
+        /* This is the visual "inactive" part of the track */
+        background: rgba(255, 255, 255, 0.2) !important; /* Glass Inactive */
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 999px !important;
+        height: 10px !important;
+    }
+    
+    /* 2. The active track */
+    .stSlider [data-baseweb="slider"] > div:nth-of-type(2) {
+        /* This is the part that fills up. */
+        background: linear-gradient(117deg, #49a3fc 0%, #3681ee 100%) !important; /* Glass Active Gradient */
+        border-radius: 999px !important;
+        height: 10px !important;
+    }
+
+    /* 3. The thumb (Outer Container) */
+    .stSlider [data-baseweb="slider"] > div:nth-of-type(3) {
+        width: 38px !important; /* New pill width */
+        height: 30px !important; /* New pill height */
+        /* Re-center the container on the track */
+        transform: translate(-50%, -50%) !important; 
+        top: 50% !important; /* Make sure it's centered vertically */
+        background: none !important; /* Make this invisible */
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    /* 4. The thumb (Inner Visible Pill) */
+    .stSlider [data-baseweb="slider"] > div:nth-of-type(3) > div {
+        /* Make it fill its new container */
+        width: 100% !important; 
+        height: 100% !important;
+        border-radius: 999px !important; /* Pill shape */
+        border: 1px solid rgba(0, 0, 0, 0.05) !important;
+        background-color: #fff !important; /* Clean white */
+        
+        /* A simple, clean shadow */
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2) !important;
+        
+        /* Reset any transform this inner div might have */
+        transform: none !important; 
+        opacity: 1 !important; /* Make sure it's visible */
+        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    }
+
+    /* 5. Hover & Active State */
+    .stSlider [data-baseweb="slider"] > div:nth-of-type(3) > div:hover {
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
+        transform: scale(1.05) !important;
+    }
+    .stSlider [data-baseweb="slider"] > div:nth-of-type(3) > div:active {
+        transform: scale(0.95) !important;
+    }
+    /* --- END SLIDER STYLES --- */
+    
     /* Polished Glass Buttons */
     .stButton>button {
         width: 100%; background: rgba(0, 150, 255, 0.4);
@@ -160,6 +225,11 @@ def get_theme_css(theme):
             .stTabs [data-baseweb="tab"], .auth-container > div[data-testid="stHorizontalBlock"] > div { background-color: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
             .stTabs [data-baseweb="tab"]:hover { background-color: rgba(255, 255, 255, 0.3); }
             .stTabs [aria-selected="true"] { background-color: rgba(0, 150, 255, 0.5); }
+            
+            /* Dark Theme Slider Adjustments */
+            .stSlider [data-baseweb="slider"] > div:first-child > div {
+                background-color: rgba(255, 255, 255, 0.2) !important; /* Light gray track */
+            }
             </style>
         """
     else:  # Light Theme
@@ -181,6 +251,11 @@ def get_theme_css(theme):
             .stTabs [aria-selected="true"] { background-color: rgba(0, 123, 255, 0.2); }
             .percentage-display { color: #007BFF; }
             h1, .stMarkdown h1 { color: rgb(128,128,128); }
+            
+            /* Light Theme Slider Adjustments */
+            .stSlider [data-baseweb="slider"] > div:first-child > div {
+                background-color: rgba(0, 0, 0, 0.1) !important; /* Darker gray track for light mode */
+            }
             </style>
         """
 
@@ -402,24 +477,44 @@ else:
                 with st.form(key=f"attendance_form_saturday_{selected_date_str_key}"):
                     existing_records = {rec['subject']: rec for rec in attendance_doc.get(
                         "records", [])} if attendance_doc else {}
+
+                    form_submission_data = []
+
                     for subject in master_subject_list:
                         st.markdown(f"<h4>{subject}</h4>",
                                     unsafe_allow_html=True)
                         cols = st.columns([1, 2])
-                        existing_hours = existing_records.get(
-                            subject, {}).get('hours', 0)
-                        existing_status = existing_records.get(
-                            subject, {}).get('status', 'Present')
-                        status_options = ["Present", "Absent"]
-                        cols[0].number_input(
-                            "Hours Conducted", min_value=0, step=1, key=f"hours_{subject}", value=existing_hours)
-                        cols[1].radio("Status", options=status_options, key=f"status_{subject}", index=status_options.index(
-                            existing_status), horizontal=True, label_visibility="collapsed")
+
+                        # Get existing values
+                        existing_rec = existing_records.get(subject, {})
+                        existing_hours = existing_rec.get('hours_conducted', 0)
+                        existing_attended = existing_rec.get('hours_present', 0)
+
+                        conducted_hours = cols[0].number_input(
+                            "Hours Conducted", min_value=0, step=1, key=f"conducted_{subject}", value=existing_hours)
+
+                        attended_hours = cols[1].number_input(
+                            "Hours Attended", min_value=0, max_value=conducted_hours if conducted_hours > 0 else 100,
+                            step=1, key=f"attended_{subject}", value=existing_attended)
+
+                        if conducted_hours > 0:
+                            if attended_hours == 0:
+                                status_str = "Absent"
+                            elif attended_hours == conducted_hours:
+                                status_str = "Present"
+                            else:
+                                status_str = "Partial"
+
+                            form_submission_data.append({
+                                "subject": subject,
+                                "hours_conducted": conducted_hours,
+                                "hours_present": attended_hours,
+                                "status": status_str
+                            })
+
                     if st.form_submit_button(f"Save Attendance for Saturday"):
-                        new_records = [{"subject": s, "status": st.session_state[f"status_{s}"], "hours": st.session_state[f"hours_{s}"]}
-                                       for s in master_subject_list if st.session_state[f"hours_{s}"] > 0]
                         db.attendance_records.update_one(
-                            query, {"$set": {"records": new_records}}, upsert=True)
+                            query, {"$set": {"records": form_submission_data}}, upsert=True)
                         st.success(f"Saturday's attendance has been saved!")
                         time.sleep(1)
                         st.rerun()
@@ -427,39 +522,107 @@ else:
         else:  # REGULAR LOGIC FOR MONDAY - FRIDAY
             schedule = timetable_doc.get("schedule", {}).get(
                 selected_day_str, []) if timetable_doc else []
+
             if not schedule:
                 st.info(f"No classes scheduled for {selected_day_str}. 🌴")
             else:
                 with st.form(key=f"attendance_form_{selected_date_str_key}"):
-                    existing_records = {rec['subject']: rec['status'] for rec in attendance_doc.get(
-                        "records", [])} if attendance_doc else {}
+                    st.caption("Slide to select how many hours you attended.")
+
+                    # Get existing records to pre-fill the form
+                    existing_data = {
+                        rec['subject']: rec
+                        for rec in attendance_doc.get("records", [])
+                    } if attendance_doc else {}
+
+                    form_submission_data = []
+
                     for subject in schedule:
+                        subj_name = subject['name']
+                        total_hours = subject['hours']
+
+                        # Retrieve previous value if it exists, otherwise default to total_hours (assuming present)
+                        prev_record = existing_data.get(subj_name, {})
+
+                        # Handle old data format (status='Present') vs new format (hours_present=X)
+                        if 'hours_present' in prev_record:
+                            default_val = prev_record['hours_present']
+                        elif prev_record.get('status') == 'Absent':
+                            default_val = 0
+                        else:
+                            # Default to full attendance if no record or previously marked 'Present'
+                            default_val = total_hours
+
                         st.markdown(
-                            f"<h4>{subject['name']} ({subject['hours']} Hours)</h4>", unsafe_allow_html=True)
-                        status_options = ["Present", "Absent"]
-                        current_status = existing_records.get(
-                            subject['name'], "Present")
-                        st.radio("Status", options=status_options, key=f"status_{subject['name']}", index=status_options.index(
-                            current_status), horizontal=True, label_visibility="collapsed")
+                            f"<h4>{subj_name} (Total: {total_hours} Hours)</h4>", unsafe_allow_html=True)
+
+                        # THE NEW SLIDER LOGIC
+                        attended_count = st.slider(
+                            f"Hours Attended for {subj_name}",
+                            min_value=0,
+                            max_value=total_hours,
+                            value=default_val,
+                            step=1,
+                            key=f"slider_{subj_name}",
+                            label_visibility="collapsed"
+                        )
+
+                        # Determine status string for visual clarity
+                        if attended_count == 0:
+                            status_str = "Absent"
+                        elif attended_count == total_hours:
+                            status_str = "Present"
+                        else:
+                            status_str = "Partial"
+
+                        st.caption(
+                            f"Status: {status_str} ({attended_count}/{total_hours})")
+
+                        form_submission_data.append({
+                            "subject": subj_name,
+                            "hours_conducted": total_hours,
+                            "hours_present": attended_count,
+                            "status": status_str
+                        })
+
                     if st.form_submit_button(f"Save Attendance"):
-                        new_records = [
-                            {"subject": s['name'], "status": st.session_state[f"status_{s['name']}"], "hours": s['hours']} for s in schedule]
                         db.attendance_records.update_one(
-                            query, {"$set": {"records": new_records}}, upsert=True)
+                            query,
+                            {"$set": {"records": form_submission_data}},
+                            upsert=True
+                        )
                         st.success(
                             f"Attendance for {selected_date.strftime('%A, %d %B')} has been saved!")
+                        time.sleep(1)
+                        st.rerun()
 
         st.divider()
         st.markdown(f"<h2>📊 Your Cumulative Statistics</h2>",
                     unsafe_allow_html=True)
+
+        # --- COMPLETE CUMULATIVE STATISTICS LOGIC ---
         user_records_cursor = list(db.attendance_records.find(
             {"list_name": list_name, "username": username}))
 
-        total_conducted = sum(entry.get(
-            'hours', 1) for doc in user_records_cursor for entry in doc.get("records", []))
-        total_present = sum(entry.get('hours', 1) for doc in user_records_cursor for entry in doc.get(
-            "records", []) if entry['status'] == 'Present')
+        total_conducted = 0
+        total_present = 0
+
+        for doc in user_records_cursor:
+            for entry in doc.get("records", []):
+                # Get conducted hours (new or old format)
+                c_hours = entry.get('hours_conducted', entry.get('hours', 1))
+                total_conducted += c_hours
+
+                # Get present hours (new or old format)
+                if 'hours_present' in entry:
+                    total_present += entry['hours_present']
+                else:
+                    # Fallback for old data
+                    total_present += c_hours if entry.get(
+                        'status') == 'Present' else 0
+
         total_absent = total_conducted - total_present
+        # --- END OF CUMULATIVE STATISTICS LOGIC ---
 
         stat_cols = st.columns(3)
         stat_cols[0].markdown(
@@ -494,6 +657,7 @@ else:
 
     # 2C. ANALYSIS PAGE
     elif st.session_state.page == "analysis":
+        # --- COMPLETE ANALYSIS PAGE LOGIC ---
         list_name = st.session_state.get("selected_list", "Unknown")
         username = st.session_state.get("username")
         st.markdown('<div class="main-container">', unsafe_allow_html=True)
@@ -509,13 +673,28 @@ else:
         for doc in user_records_cursor:
             for record in doc.get("records", []):
                 subject_name = record['subject']
-                hours = record.get('hours', 1)
+
+                # --- NEW COMPATIBILITY LOGIC ---
+                # 1. Get Total Conducted Hours
+                # Use 'hours_conducted' if available (new format), else use 'hours' (old format)
+                # 'hours' from old import logic may be 1, so default to 1.
+                conducted = record.get('hours_conducted', record.get('hours', 1))
+
+                # 2. Get Total Present Hours
+                # Use 'hours_present' (new format).
+                # If not found, fallback to old logic: if Status is Present, count full hours, else 0.
+                if 'hours_present' in record:
+                    present = record['hours_present']
+                else:
+                    present = conducted if record.get(
+                        'status') == 'Present' else 0
+                # -------------------------------
+
                 if subject_name not in subject_stats:
-                    subject_stats[subject_name] = {
-                        'conducted': 0, 'present': 0}
-                subject_stats[subject_name]['conducted'] += hours
-                if record['status'] == 'Present':
-                    subject_stats[subject_name]['present'] += hours
+                    subject_stats[subject_name] = {'conducted': 0, 'present': 0}
+
+                subject_stats[subject_name]['conducted'] += conducted
+                subject_stats[subject_name]['present'] += present
 
         if not subject_stats:
             st.info("You haven't marked any attendance for this list yet.")
@@ -539,7 +718,7 @@ else:
                     mini_stat_cols[2].markdown(
                         f"<div class='glass-stat-box' style='padding: 0.5rem;'><div class='stat-value' style='font-size: 1.5rem;'>{stats['absent']}</div><div class='stat-label'>Absent</div></div>", unsafe_allow_html=True)
                 with col2:
-                    if stats['conducted'] > 0:
+                    if stats['conducted'] > 0 and (stats['present'] > 0 or stats['absent'] > 0):
                         labels, sizes, colors = ['Present', 'Absent'], [
                             stats['present'], stats['absent']], ['#00DFFC', '#F44336']
                         text_color = 'white' if st.session_state.theme == 'dark' else '#333'
@@ -552,11 +731,14 @@ else:
                                  size=10, weight="bold")
                         ax.axis('equal')
                         st.pyplot(fig)
+                    elif stats['conducted'] > 0:
+                        st.info("No data to plot.")
                 st.markdown('</div>', unsafe_allow_html=True)
         if st.button("🔙 Back to Dashboard"):
             st.session_state.page = "dashboard"
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
+        # --- END OF ANALYSIS PAGE LOGIC ---
 
     # 2D. CHANGE PASSWORD PAGE
     elif st.session_state.page == "change_password":
@@ -580,7 +762,7 @@ else:
                         if new_password == confirm_new_password:
                             hashed_pass = hash_password(new_password)
                             db.users.update_one({"_id": username}, {
-                                                "$set": {"password": hashed_pass}})
+                                "$set": {"password": hashed_pass}})
                             st.success("Password updated successfully!")
                             time.sleep(1.5)
                             st.session_state.page = "dashboard"
@@ -627,9 +809,9 @@ else:
                                         db.users.insert_one(
                                             {"_id": new_username, "password": user_data["password"]}, session=session)
                                         db.timetables.update_many({"owner": old_username}, {
-                                                                  "$set": {"owner": new_username}}, session=session)
+                                            "$set": {"owner": new_username}}, session=session)
                                         db.attendance_records.update_many({"username": old_username}, {
-                                                                          "$set": {"username": new_username}}, session=session)
+                                            "$set": {"username": new_username}}, session=session)
                                         db.users.delete_one(
                                             {"_id": old_username}, session=session)
                                 st.success(
@@ -692,18 +874,20 @@ else:
                         name = subject_data['name'].strip()
                         if not name:
                             continue
+                        # This logic creates unit-hour records, which is compatible
+                        # with the new backward-compatible calculation logic.
                         for _ in range(subject_data['present']):
                             all_records.append(
-                                {"subject": name, "status": "Present"})
+                                {"subject": name, "status": "Present", "hours": 1})
                         for _ in range(subject_data['absent']):
                             all_records.append(
-                                {"subject": name, "status": "Absent"})
+                                {"subject": name, "status": "Absent", "hours": 1})
                     if not all_records:
                         st.warning(
                             "Please enter some attendance data before importing.")
                     else:
                         db.attendance_records.update_one({"list_name": selected_list, "date": import_date_str, "username": username}, {
-                                                         "$set": {"records": all_records, "is_import": True}}, upsert=True)
+                            "$set": {"records": all_records, "is_import": True}}, upsert=True)
                         st.success(
                             f"Successfully imported historical data for '{selected_list}'!")
                         del st.session_state.import_subjects
@@ -754,12 +938,23 @@ else:
                     for subject_name in all_subjects:
                         subject_conducted = 0
                         subject_present = 0
+
+                        # --- UPDATED PREDICTION LOGIC ---
                         for doc in user_records_cursor:
                             for record in doc.get("records", []):
                                 if record.get("subject") == subject_name:
-                                    subject_conducted += 1
-                                    if record.get("status") == "Present":
-                                        subject_present += 1
+                                    # 1. Get Conducted
+                                    c_hours = record.get(
+                                        'hours_conducted', record.get('hours', 1))
+                                    subject_conducted += c_hours
+
+                                    # 2. Get Present
+                                    if 'hours_present' in record:
+                                        subject_present += record['hours_present']
+                                    else:
+                                        subject_present += c_hours if record.get(
+                                            'status') == 'Present' else 0
+                        # --- END UPDATED LOGIC ---
 
                         st.markdown('<div class="glass-subject-row">',
                                     unsafe_allow_html=True)
@@ -767,7 +962,8 @@ else:
                                     unsafe_allow_html=True)
 
                         if subject_conducted == 0:
-                            st.info("No attendance marked for this subject yet.")
+                            st.info(
+                                "No attendance marked for this subject yet.")
                         else:
                             current_percentage = (
                                 subject_present / subject_conducted) * 100
@@ -777,10 +973,19 @@ else:
                             if current_percentage >= 80:
                                 st.success("🎉 Target met! Keep it up.")
                             else:
+                                # Formula: (P + x) / (C + x) = 0.8
+                                # 0.8C + 0.8x = P + x
+                                # 0.8C - P = 0.2x
+                                # 5 * (0.8C - P) = x
+                                # 4C - 5P = x
                                 classes_needed = math.ceil(
-                                    4 * subject_conducted - 5 * subject_present)
-                                st.warning(
-                                    f"You need to attend **{classes_needed} more classes** of this subject to reach 80%.")
+                                    (4 * subject_conducted) - (5 * subject_present))
+                                if classes_needed <= 0:
+                                    # This can happen due to ceil() and floating point, means they are very close
+                                    st.success("🎉 Target met! Keep it up.")
+                                else:
+                                    st.warning(
+                                        f"You need to attend **{classes_needed} more classes** (hours) of this subject to reach 80%.")
                         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.button("🔙 Back to Dashboard"):
@@ -789,7 +994,7 @@ else:
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # 2H. NEW: RESET ATTENDANCE PAGE
+    # 2H. NEW: RESET ATTENDANCE PAGE
     elif st.session_state.page == "reset_attendance":
         st.markdown('<div class="main-container">', unsafe_allow_html=True)
         st.markdown("<h1>🗑️ Reset Attendance</h1>", unsafe_allow_html=True)
@@ -835,7 +1040,84 @@ else:
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 2I. DASHBOARD PAGE (Default)
+    # 2I. NEW: VIEW ATTENDANCE LOG PAGE
+    elif st.session_state.page == "view_attendance":
+        st.markdown('<div class="main-container">', unsafe_allow_html=True)
+        st.markdown("<h1>🗓️ View Attendance Log</h1>", unsafe_allow_html=True)
+        st.caption(
+            "Select a timetable and date to review your past attendance records.")
+        st.divider()
+
+        username = st.session_state.get("username")
+        query = {"$or": [{"is_public": True}, {"owner": username}]}
+        timetable_options = [t["_id"]
+                             for t in db.timetables.find(query, {"_id": 1})]
+
+        if not timetable_options:
+            st.warning("No timetables available to view.")
+        else:
+            selected_list = st.selectbox(
+                "Select a timetable:", timetable_options, key="view_list_select")
+            selected_date = st.date_input(
+                "Select the date to view:", datetime.now(), key="view_date_select")
+
+            st.divider()
+
+            date_str = selected_date.strftime("%Y-%m-%d")
+            query_to_view = {"list_name": selected_list,
+                             "date": date_str, "username": username}
+
+            attendance_doc = db.attendance_records.find_one(query_to_view)
+
+            if attendance_doc:
+                st.markdown(
+                    f"<h3>Records for {selected_date.strftime('%A, %d %B %Y')}</h3>", unsafe_allow_html=True)
+                records = attendance_doc.get("records", [])
+                if not records:
+                    st.info(
+                        "No records found for this day, though the entry exists.")
+
+                for record in records:
+                    subj_name = record.get('subject')
+                    conducted = record.get(
+                        'hours_conducted', record.get('hours', 1))
+
+                    if 'hours_present' in record:
+                        present = record['hours_present']
+                    else:
+                        present = conducted if record.get(
+                            'status') == 'Present' else 0
+
+                    status = record.get('status', 'N/A')
+
+                    st.markdown(
+                        '<div class="glass-subject-row">', unsafe_allow_html=True)
+                    st.markdown(
+                        f"<h4>{subj_name}</h4>", unsafe_allow_html=True)
+
+                    cols = st.columns(2)
+                    cols[0].metric("Hours", f"{present} / {conducted}")
+
+                    if status == "Present":
+                        cols[1].success(f"Status: {status}")
+                    elif status == "Absent":
+                        cols[1].error(f"Status: {status}")
+                    else:
+                        cols[1].warning(f"Status: {status}")
+
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+            else:
+                st.info(
+                    f"No attendance was marked for '{selected_list}' on {date_str}.")
+
+        if st.button("🔙 Back to Dashboard"):
+            st.session_state.page = "dashboard"
+            st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # 2J. DASHBOARD PAGE (Default)
     else:
         st.markdown('<div class="main-container">', unsafe_allow_html=True)
         username = st.session_state.get('username', 'User')
@@ -857,9 +1139,9 @@ else:
 
         st.divider()
 
-        # Dashboard buttons organized in a 3x2 grid for clarity
+        # Dashboard buttons organized
         st.markdown("<h4>Actions</h4>", unsafe_allow_html=True)
-        d_cols1 = st.columns(3)
+        d_cols1 = st.columns(2)
         if d_cols1[0].button("➕ Create List"):
             st.session_state.page = "new_timetable"
             st.session_state.form_step = 1
@@ -868,19 +1150,24 @@ else:
         if d_cols1[1].button("📥 Import Data"):
             st.session_state.page = "import_data"
             st.rerun()
-        if d_cols1[2].button("🔮 Predict"):
+
+        d_cols2 = st.columns(2)
+        if d_cols2[0].button("🔮 Predict"):
             st.session_state.page = "prediction"
+            st.rerun()
+        if d_cols2[1].button("🗓️ View Log"):
+            st.session_state.page = "view_attendance"
             st.rerun()
 
         st.markdown("<h4>Account Settings</h4>", unsafe_allow_html=True)
-        d_cols2 = st.columns(3)
-        if d_cols2[0].button("🔑 Change Password"):
+        d_cols3 = st.columns(3)
+        if d_cols3[0].button("🔑 Change Password"):
             st.session_state.page = "change_password"
             st.rerun()
-        if d_cols2[1].button("👤 Change Username"):
+        if d_cols3[1].button("👤 Change Username"):
             st.session_state.page = "change_username"
             st.rerun()
-        if d_cols2[2].button("🗑️ Reset Date"):
+        if d_cols3[2].button("🗑️ Reset Date"):
             st.session_state.page = "reset_attendance"
             st.rerun()
 
