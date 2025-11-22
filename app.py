@@ -70,10 +70,30 @@ def add_bg_from_local(image_file):
 
 # --- Global CSS for a polished Liquid Glass UI ---
 st.markdown("""
+    <!-- SVG Filter for the "Liquid Glass" Slider Effect -->
+    <svg width="0" height="0" style="position: absolute;">
+      <filter id="mini-liquid-lens" x="-50%" y="-50%" width="200%" height="200%">
+        <feImage x="0" y="0" result="normalMap" xlink:href="data:image/svg+xml;utf8,
+        <svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'>
+          <radialGradient id='invmap' cx='50%' cy='50%' r='75%'>
+            <stop offset='0%' stop-color='rgb(128,128,255)'/>
+            <stop offset='90%' stop-color='rgb(255,255,255)'/>
+          </radialGradient>
+          <rect width='100%' height='100%' fill='url(#invmap)'/>
+        </svg>" />
+        <feDisplacementMap in="SourceGraphic" in2="normalMap" scale="-20" xChannelSelector="R" yChannelSelector="G"
+          result="displaced" />
+        <feMerge>
+          <feMergeNode in="displaced" />
+        </feMerge>
+      </filter>
+    </svg>
+
     <style>
     /* General Body Font */
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    /* Main Glass Container for all pages */
+    body { font-family: 'Inter', 'Segoe UI', sans-serif; }
+    
+    /* Main Glass Container */
     .main-container {
         background: rgba(25, 25, 40, 0.75);
         backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -83,6 +103,7 @@ st.markdown("""
         position: relative;
         top:80px;
     }
+    
     /* Login Form Glass Box */
     .auth-container {
         background: rgba(25, 25, 40, 0.75);
@@ -93,74 +114,93 @@ st.markdown("""
         position: relative;
         top: 55px;
     }
+    
     h1, h2, h3, h4, .stDateInput label { color: white; text-align: center; }
-    p, .st-caption { text-align: center; } /* Center paragraph and caption text */
-    .st-emotion-cache-16txtl3 { color: rgba(255,255,255,0.7); } /* Streamlit caption color */
+    p, .st-caption { text-align: center; }
+    .st-emotion-cache-16txtl3 { color: rgba(255,255,255,0.7); }
     
-    /* --- NEW SLIDER STYLES V5 (ROBUST PILL) --- */
+    /* ========================================= */
+    /* === PERFECT LIQUID GLASS SLIDER STYLES === */
+    /* ========================================= */
     
-    /* 1. The main background track (the 'gutter') */
+    /* 1. Track Container (Background Track) */
     .stSlider [data-baseweb="slider"] > div:first-child {
-        /* This is the container for the track pieces. */
-        background: none !important;
-        height: 10px !important; 
+        height: 10px !important;
+        padding: 0 !important;
+        margin-top: 16px !important; /* Give space for the thumb */
     }
+    
+    /* The gray background line */
     .stSlider [data-baseweb="slider"] > div:first-child > div {
-        /* This is the visual "inactive" part of the track */
-        background: rgba(255, 255, 255, 0.2) !important; /* Glass Inactive */
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 999px !important;
+        background: #D6D6DA !important;
         height: 10px !important;
-    }
-    
-    /* 2. The active track */
-    .stSlider [data-baseweb="slider"] > div:nth-of-type(2) {
-        /* This is the part that fills up. */
-        background: linear-gradient(117deg, #49a3fc 0%, #3681ee 100%) !important; /* Glass Active Gradient */
         border-radius: 999px !important;
-        height: 10px !important;
-    }
-
-    /* 3. The thumb (Outer Container) */
-    .stSlider [data-baseweb="slider"] > div:nth-of-type(3) {
-        width: 38px !important; /* New pill width */
-        height: 30px !important; /* New pill height */
-        /* Re-center the container on the track */
-        transform: translate(-50%, -50%) !important; 
-        top: 50% !important; /* Make sure it's centered vertically */
-        background: none !important; /* Make this invisible */
         border: none !important;
-        box-shadow: none !important;
     }
-
-    /* 4. The thumb (Inner Visible Pill) */
-    .stSlider [data-baseweb="slider"] > div:nth-of-type(3) > div {
-        /* Make it fill its new container */
-        width: 100% !important; 
-        height: 100% !important;
-        border-radius: 999px !important; /* Pill shape */
-        border: 1px solid rgba(0, 0, 0, 0.05) !important;
-        background-color: #fff !important; /* Clean white */
-        
-        /* A simple, clean shadow */
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2) !important;
-        
-        /* Reset any transform this inner div might have */
-        transform: none !important; 
-        opacity: 1 !important; /* Make sure it's visible */
-        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
-    }
-
-    /* 5. Hover & Active State */
-    .stSlider [data-baseweb="slider"] > div:nth-of-type(3) > div:hover {
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
-        transform: scale(1.05) !important;
-    }
-    .stSlider [data-baseweb="slider"] > div:nth-of-type(3) > div:active {
-        transform: scale(0.95) !important;
-    }
-    /* --- END SLIDER STYLES --- */
     
+    /* 2. Active Progress Track (The Blue Fill) */
+    .stSlider [data-baseweb="slider"] > div:nth-of-type(2) {
+        background: linear-gradient(117deg, #49a3fc 0%, #3681ee 100%) !important;
+        height: 10px !important;
+        border-radius: 999px !important;
+        margin-top: 16px !important; /* Align with background track */
+    }
+
+    /* 3. Thumb Outer Container (Positioning) */
+    .stSlider [data-baseweb="slider"] > div:nth-of-type(3) {
+        width: 65px !important;
+        height: 42px !important;
+        top: 21px !important; /* Center vertically relative to the 10px track */
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+        /* Force the container to respect the size */
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* 4. Thumb Inner (The Visual Liquid Pill) */
+    .stSlider [data-baseweb="slider"] > div:nth-of-type(3) > div {
+        width: 65px !important;
+        height: 42px !important;
+        border-radius: 999px !important;
+        background-color: #fff !important;
+        border: none !important;
+        
+        /* The Specular & Shadow Effects from your code */
+        box-shadow: 
+            0 1px 8px 0 rgba(0, 30, 63, 0.1), 
+            0 0 2px 0 rgba(0, 9, 20, 0.1),
+            inset 1px 1px 0 rgba(69, 168, 243, 0.2),
+            inset 1px 3px 0 rgba(28, 63, 90, 0.05),
+            inset 0 0 22px rgb(255 255 255 / 60%),
+            inset -1px -1px 0 rgba(69, 168, 243, 0.12) !important;
+            
+        /* Apply the liquid lens filter */
+        filter: url(#mini-liquid-lens);
+        backdrop-filter: blur(0.6px);
+        -webkit-backdrop-filter: blur(0.6px);
+        
+        transition: transform 0.15s ease, height 0.15s ease !important;
+        transform-origin: center center !important;
+    }
+
+    /* 5. Thumb Interaction States */
+    .stSlider [data-baseweb="slider"] > div:nth-of-type(3) > div:hover {
+        cursor: pointer;
+    }
+    
+    .stSlider [data-baseweb="slider"] > div:nth-of-type(3) > div:active {
+        transform: scaleY(0.98) scaleX(1.1) !important;
+    }
+    
+    /* Hide the default value popup to keep it clean */
+    .stSlider [data-baseweb="slider"] > div:last-child {
+        display: none !important; 
+    }
+    /* ========================================= */
+
     /* Polished Glass Buttons */
     .stButton>button {
         width: 100%; background: rgba(0, 150, 255, 0.4);
@@ -168,6 +208,7 @@ st.markdown("""
         color: white; font-weight: bold; border-radius: 10px; transition: background 0.3s;
     }
     .stButton>button:hover { background: rgba(0, 150, 255, 0.6); border: 1px solid #007BFF; }
+    
     /* Dashboard List Items */
     .glass-list-item {
         background: rgba(40, 40, 60, 0.7); border-radius: 15px;
@@ -225,11 +266,6 @@ def get_theme_css(theme):
             .stTabs [data-baseweb="tab"], .auth-container > div[data-testid="stHorizontalBlock"] > div { background-color: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; }
             .stTabs [data-baseweb="tab"]:hover { background-color: rgba(255, 255, 255, 0.3); }
             .stTabs [aria-selected="true"] { background-color: rgba(0, 150, 255, 0.5); }
-            
-            /* Dark Theme Slider Adjustments */
-            .stSlider [data-baseweb="slider"] > div:first-child > div {
-                background-color: rgba(255, 255, 255, 0.2) !important; /* Light gray track */
-            }
             </style>
         """
     else:  # Light Theme
@@ -251,11 +287,6 @@ def get_theme_css(theme):
             .stTabs [aria-selected="true"] { background-color: rgba(0, 123, 255, 0.2); }
             .percentage-display { color: #007BFF; }
             h1, .stMarkdown h1 { color: rgb(128,128,128); }
-            
-            /* Light Theme Slider Adjustments */
-            .stSlider [data-baseweb="slider"] > div:first-child > div {
-                background-color: rgba(0, 0, 0, 0.1) !important; /* Darker gray track for light mode */
-            }
             </style>
         """
 
@@ -1117,7 +1148,107 @@ else:
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 2J. DASHBOARD PAGE (Default)
+    # 2J. NEW: ABSENTEEISM REPORT PAGE
+    elif st.session_state.page == "view_absent_report":
+        st.markdown('<div class="main-container">', unsafe_allow_html=True)
+        st.markdown("<h1>📉 Absent Details Report</h1>", unsafe_allow_html=True)
+        st.caption("A complete history of hours missed.")
+        st.divider()
+
+        username = st.session_state.get("username")
+        query = {"$or": [{"is_public": True}, {"owner": username}]}
+        timetable_options = [t["_id"] for t in db.timetables.find(query, {"_id": 1})]
+
+        if not timetable_options:
+            st.warning("No timetables available.")
+        else:
+            selected_list = st.selectbox("Select a timetable:", timetable_options, key="absent_list_select")
+            
+            # Fetch all records for this list
+            all_records_cursor = db.attendance_records.find(
+                {"list_name": selected_list, "username": username}
+            ).sort("date", -1) # Sort by date descending (newest first)
+
+            absent_data = []
+
+            for doc in all_records_cursor:
+                date_str = doc.get("date")
+                try:
+                    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                    day_name = date_obj.strftime("%A")
+                    formatted_date = date_obj.strftime("%d %b %Y")
+                except:
+                    day_name = "Unknown"
+                    formatted_date = date_str
+
+                for record in doc.get("records", []):
+                    subject = record.get("subject")
+                    
+                    # Calculate hours lost
+                    conducted = record.get('hours_conducted', record.get('hours', 1))
+                    
+                    if 'hours_present' in record:
+                        present = record['hours_present']
+                    else:
+                        # Old data fallback
+                        present = conducted if record.get('status') == 'Present' else 0
+                    
+                    hours_lost = conducted - present
+
+                    if hours_lost > 0:
+                        absent_data.append({
+                            "date": formatted_date,
+                            "day": day_name,
+                            "subject": subject,
+                            "lost": hours_lost,
+                            "status": "Partial" if present > 0 else "Absent"
+                        })
+
+            if not absent_data:
+                st.success("🎉 Amazing! You have zero recorded absences for this timetable.")
+            else:
+                # --- Subject Wise Filter ---
+                unique_subjects = sorted(list(set(item['subject'] for item in absent_data)))
+                
+                selected_subjects = st.multiselect(
+                    "Filter by Subject:",
+                    options=unique_subjects,
+                    default=unique_subjects,
+                    key="absent_subject_filter"
+                )
+                
+                # Filter the data based on selection
+                filtered_data = [item for item in absent_data if item['subject'] in selected_subjects]
+                
+                if not filtered_data:
+                    st.info("No absences found for the selected subjects.")
+                else:
+                    st.markdown(f"### Found {len(filtered_data)} instances of absence")
+                    
+                    # Table Header
+                    col1, col2, col3, col4 = st.columns([2, 2, 4, 2])
+                    col1.markdown("**Date**")
+                    col2.markdown("**Day**")
+                    col3.markdown("**Subject**")
+                    col4.markdown("**Hrs Lost**")
+                    st.markdown("<hr style='margin: 0.5rem 0; border-color: rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
+
+                    # Table Rows
+                    for item in filtered_data:
+                        c1, c2, c3, c4 = st.columns([2, 2, 4, 2])
+                        c1.write(item['date'])
+                        c2.write(item['day'])
+                        c3.write(item['subject'])
+                        c4.markdown(f"<span style='color: #FF6B6B; font-weight: bold;'>-{item['lost']}</span>", unsafe_allow_html=True)
+                        st.markdown("<div style='border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 0.5rem;'></div>", unsafe_allow_html=True)
+
+        if st.button("🔙 Back to Dashboard"):
+            st.session_state.page = "dashboard"
+            st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # 2K. DASHBOARD PAGE (Default)
     else:
         st.markdown('<div class="main-container">', unsafe_allow_html=True)
         username = st.session_state.get('username', 'User')
@@ -1139,7 +1270,7 @@ else:
 
         st.divider()
 
-        # Dashboard buttons organized
+        # Dashboard buttons organized in a 3x2 grid for clarity
         st.markdown("<h4>Actions</h4>", unsafe_allow_html=True)
         d_cols1 = st.columns(2)
         if d_cols1[0].button("➕ Create List"):
@@ -1150,13 +1281,16 @@ else:
         if d_cols1[1].button("📥 Import Data"):
             st.session_state.page = "import_data"
             st.rerun()
-
-        d_cols2 = st.columns(2)
+        
+        d_cols2 = st.columns(3)
         if d_cols2[0].button("🔮 Predict"):
             st.session_state.page = "prediction"
             st.rerun()
         if d_cols2[1].button("🗓️ View Log"):
             st.session_state.page = "view_attendance"
+            st.rerun()
+        if d_cols2[2].button("📉 Absent Details"):
+            st.session_state.page = "view_absent_report"
             st.rerun()
 
         st.markdown("<h4>Account Settings</h4>", unsafe_allow_html=True)
